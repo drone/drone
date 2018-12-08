@@ -71,6 +71,12 @@ func (db *datastore) GetBuildQueue() ([]*model.Feed, error) {
 	return feed, err
 }
 
+func (db *datastore) GetRecentBuilds() ([]*model.Feed, error) {
+	feed := []*model.Feed{}
+	err := meddler.QueryAll(db, &feed, buildRecentList)
+	return feed, err
+}
+
 func (db *datastore) CreateBuild(build *model.Build, procs ...*model.Proc) error {
 	id, err := db.incrementRepoRetry(build.RepoID)
 	if err != nil {
@@ -224,4 +230,33 @@ FROM
 ,repos r
 WHERE b.build_repo_id = r.repo_id
   AND b.build_status IN ('pending','running')
+`
+
+const buildRecentList = `
+SELECT
+ repo_owner
+,repo_name
+,repo_full_name
+,build_number
+,build_event
+,build_status
+,build_created
+,build_started
+,build_finished
+,build_commit
+,build_branch
+,build_ref
+,build_refspec
+,build_remote
+,build_title
+,build_message
+,build_author
+,build_email
+,build_avatar
+FROM
+ builds b
+,repos r
+WHERE b.build_repo_id = r.repo_id
+ORDER BY b.build_number DESC
+LIMIT 50
 `

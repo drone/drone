@@ -86,6 +86,9 @@ type Store interface {
 	// GetBuildQueue gets a list of build in queue.
 	GetBuildQueue() ([]*model.Feed, error)
 
+	// GetRecentBuilds gets a list of recent builds.
+	GetRecentBuilds() ([]*model.Feed, error)
+
 	// GetBuildCount gets a count of all builds in the system.
 	GetBuildCount() (int, error)
 
@@ -243,6 +246,10 @@ func GetBuildList(c context.Context, repo *model.Repo, page int) ([]*model.Build
 
 func GetBuildQueue(c context.Context) ([]*model.Feed, error) {
 	return FromContext(c).GetBuildQueue()
+}
+
+func GetRecentBuilds(c context.Context) ([]*model.Feed, error) {
+	return FromContext(c).GetRecentBuilds()
 }
 
 func CreateBuild(c context.Context, build *model.Build, procs ...*model.Proc) error {

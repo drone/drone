@@ -463,6 +463,14 @@ func GetBuildQueue(c *gin.Context) {
 	c.JSON(200, out)
 }
 
+func GetRecentBuilds(c *gin.Context) {
+	out, err := store.GetRecentBuilds(c)
+	if err != nil {
+		c.String(500, "Error getting recent builds. %s", err)
+		return
+	}
+	c.JSON(200, out)
+}
 //
 //
 //

@@ -158,6 +158,7 @@ func Load(mux *httptreemux.ContextMux, middleware ...gin.HandlerFunc) http.Handl
 	builds := e.Group("/api/builds")
 	{
 		builds.Use(session.MustAdmin())
+		builds.GET("/recent", server.GetRecentBuilds)
 		builds.GET("", server.GetBuildQueue)
 	}
 
