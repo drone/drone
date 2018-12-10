@@ -33,6 +33,8 @@ func main() {
 	app.Flags = flags
 	app.Before = before
 
+	version.PrintVersion(true)
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

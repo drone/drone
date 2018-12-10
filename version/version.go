@@ -14,7 +14,14 @@
 
 package version
 
-import "github.com/coreos/go-semver/semver"
+import (
+	"fmt"
+	"os"
+	"runtime"
+
+	"github.com/coreos/go-semver/semver"
+	"github.com/rs/zerolog/log"
+)
 
 var (
 	// VersionMajor is for an API incompatible changes.
@@ -27,6 +34,8 @@ var (
 	VersionPre string
 	// VersionDev indicates development branch. Releases will be empty string.
 	VersionDev string
+	// BuildDate is the ISO 8601 day drone was built.
+	BuildDate string
 )
 
 // Version is the specification version that the package types support.
@@ -36,4 +45,13 @@ var Version = semver.Version{
 	Patch:      VersionPatch,
 	PreRelease: semver.PreRelease(VersionPre),
 	Metadata:   VersionDev,
+}
+
+func PrintVersion(logOutput bool) {
+	output := fmt.Sprintf("Running %v version %s, built on %s, %s", os.Args[0], Version, BuildDate, runtime.Version())
+	if !logOutput {
+		fmt.Fprintf(os.Stderr, output)
+	} else {
+		log.Info().Msg(output)
+	}
 }
