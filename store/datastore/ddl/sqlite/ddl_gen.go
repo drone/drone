@@ -192,13 +192,21 @@ func Migrate(db *sql.DB) error {
 			continue
 		}
 
-		if _, err := db.Exec(migration.stmt); err != nil {
+		tx, err := db.Begin()
+		if err != nil {
 			return err
 		}
-		if err := insertMigration(db, migration.name); err != nil {
+		{
+			if _, err := tx.Exec(migration.stmt); err != nil {
+				return err
+			}
+			if err := insertMigration(tx, migration.name); err != nil {
+				return err
+			}
+		}
+		if err := tx.Commit(); err != nil {
 			return err
 		}
-
 	}
 	return nil
 }
@@ -208,7 +216,7 @@ func createTable(db *sql.DB) error {
 	return err
 }
 
-func insertMigration(db *sql.DB, name string) error {
+func insertMigration(db *sql.Tx, name string) error {
 	_, err := db.Exec(migrationInsert, name)
 	return err
 }
