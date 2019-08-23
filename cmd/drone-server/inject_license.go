@@ -38,7 +38,7 @@ func provideLicense(client *scm.Client, config config.Config) *core.License {
 		l = license.Trial(client.Driver.String())
 	} else if err != nil {
 		logrus.WithError(err).
-			Fatalln("main: invalid or expired license")
+			Fatalf("main: invalid or expired license at '%s'", config.License)
 	}
 	logrus.WithFields(
 		logrus.Fields{

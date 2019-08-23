@@ -192,6 +192,8 @@ github.com/hashicorp/go-multierror v1.0.0 h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uP
 github.com/hashicorp/go-multierror v1.0.0/go.mod h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=
 github.com/hashicorp/go-retryablehttp v0.0.0-20180718195005-e651d75abec6 h1:qCv4319q2q7XKn0MQbi8p37hsJ+9Xo8e6yojA73JVxk=
 github.com/hashicorp/go-retryablehttp v0.0.0-20180718195005-e651d75abec6/go.mod h1:fXcdFsQoipQa7mwORhKad5jmDCeSy/RCGzWA08PO0lM=
+github.com/hashicorp/go-rootcerts v1.0.0 h1:Rqb66Oo1X/eSV1x66xbDccZjhJigjg0+e82kpwzSwCI=
+github.com/hashicorp/go-rootcerts v1.0.0/go.mod h1:K6zTfqpRlCUIjkwsN4Z+hiSfzSTQa6eBIzfwKfwNnHU=
 github.com/hashicorp/golang-lru v0.5.0 h1:CL2msUPvZTLb5O648aiLNJw3hnBxN2+1Jq8rCOH9wdo=
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/nomad v0.0.0-20190125003214-134391155854 h1:L7WhLZt2ory/kQWxqkMwOiBpIoa4BWoadN7yx8LHEtk=
