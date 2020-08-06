@@ -263,10 +263,10 @@ func testBuildPending(store *buildStore) func(t *testing.T) {
 			execer.Exec("DELETE FROM stages")
 			return nil
 		})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 98, Status: core.StatusPending}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusPending}})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 99, Status: core.StatusPending}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusPending}})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 100, Status: core.StatusRunning}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusRunning}})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 101, Status: core.StatusPassing}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusPassing}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 98, Status: core.StatusPending}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusPending}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 99, Status: core.StatusPending}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusPending}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 100, Status: core.StatusRunning}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusRunning}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 101, Status: core.StatusPassing}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusPassing}})
 
 		count, err := store.Count(noContext)
 		if err != nil {
@@ -290,10 +290,10 @@ func testBuildRunning(store *buildStore) func(t *testing.T) {
 			execer.Exec("DELETE FROM stages")
 			return nil
 		})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 98, Status: core.StatusRunning}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusRunning}})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 99, Status: core.StatusRunning}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusRunning}})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 100, Status: core.StatusBlocked}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusBlocked}})
-		store.Create(noContext, &core.Build{RepoID: 1, Number: 101, Status: core.StatusPassing}, []*core.Stage{&core.Stage{RepoID: 1, Number: 1, Status: core.StatusPassing}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 98, Status: core.StatusRunning}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusRunning}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 99, Status: core.StatusRunning}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusRunning}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 100, Status: core.StatusBlocked}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusBlocked}})
+		store.Create(noContext, &core.Build{RepoID: 1, Number: 101, Status: core.StatusPassing}, []*core.Stage{{RepoID: 1, Number: 1, Status: core.StatusPassing}})
 
 		count, err := store.Count(noContext)
 		if err != nil {

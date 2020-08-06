@@ -102,7 +102,7 @@ func (s *nomadScheduler) Schedule(ctx context.Context, stage *core.Stage) error 
 		Type:        stringToPtr("batch"),
 		Datacenters: s.config.Datacenter,
 		TaskGroups: []*api.TaskGroup{
-			&api.TaskGroup{
+			{
 				Name:  stringToPtr("pipeline"),
 				Tasks: []*api.Task{task},
 				RestartPolicy: &api.RestartPolicy{

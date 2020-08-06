@@ -105,4 +105,3 @@ func (s *legacy) fromToken(r *http.Request) (*core.User, error) {
 		token.Claims.(jwt.MapClaims)["text"].(string),
 	)
 }
-

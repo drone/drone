@@ -95,21 +95,21 @@ func (d *Datadog) do(ctx context.Context, unix int64) error {
 	data.Series = []series{
 		{
 			Metric: "drone.users",
-			Points: [][]int64{[]int64{unix, users}},
+			Points: [][]int64{{unix, users}},
 			Type:   "gauge",
 			Host:   d.system.Host,
 			Tags:   tags,
 		},
 		{
 			Metric: "drone.repos",
-			Points: [][]int64{[]int64{unix, repos}},
+			Points: [][]int64{{unix, repos}},
 			Type:   "gauge",
 			Host:   d.system.Host,
 			Tags:   tags,
 		},
 		{
 			Metric: "drone.builds",
-			Points: [][]int64{[]int64{unix, builds}},
+			Points: [][]int64{{unix, builds}},
 			Type:   "gauge",
 			Host:   d.system.Host,
 			Tags:   tags,

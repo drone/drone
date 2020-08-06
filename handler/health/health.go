@@ -40,4 +40,3 @@ func Handler() http.HandlerFunc {
 		io.WriteString(w, "OK")
 	}
 }
-

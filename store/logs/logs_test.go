@@ -11,10 +11,10 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/drone/drone/store/shared/db/dbtest"
 	"github.com/drone/drone/core"
 	"github.com/drone/drone/store/build"
 	"github.com/drone/drone/store/repos"
+	"github.com/drone/drone/store/shared/db/dbtest"
 	"github.com/drone/drone/store/step"
 )
 

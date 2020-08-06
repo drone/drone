@@ -107,19 +107,19 @@ func (s *kubeScheduler) Schedule(ctx context.Context, stage *core.Stage) error {
 
 	var mounts []v1.VolumeMount
 	mount := v1.VolumeMount{
-		Name:           name + "-local",
-		MountPath:      filepath.Join("/tmp", "drone"),
+		Name:      name + "-local",
+		MountPath: filepath.Join("/tmp", "drone"),
 	}
 	mounts = append(mounts, mount)
 
 	var volumes []v1.Volume
 	source := v1.HostPathDirectoryOrCreate
 	volume := v1.Volume{
-		Name:           name + "-local",
-		VolumeSource:   v1.VolumeSource{
-			HostPath:   &v1.HostPathVolumeSource{
-			Path:           filepath.Join("/tmp", "drone"),
-			Type:           &source,
+		Name: name + "-local",
+		VolumeSource: v1.VolumeSource{
+			HostPath: &v1.HostPathVolumeSource{
+				Path: filepath.Join("/tmp", "drone"),
+				Type: &source,
 			},
 		},
 	}
@@ -203,7 +203,7 @@ func (s *kubeScheduler) Cancel(ctx context.Context, id int64) error {
 			continue
 		}
 		err = s.client.BatchV1().Jobs(job.Namespace).Delete(job.Name, &metav1.DeleteOptions{
-		// GracePeriodSeconds
+			// GracePeriodSeconds
 		})
 		if err != nil {
 			result = multierror.Append(result, err)

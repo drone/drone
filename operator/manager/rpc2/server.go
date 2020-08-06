@@ -55,4 +55,3 @@ func authorization(token string) func(http.Handler) http.Handler {
 		})
 	}
 }
-

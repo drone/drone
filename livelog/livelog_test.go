@@ -100,8 +100,8 @@ func TestStreamTailNotFound(t *testing.T) {
 
 func TestStreamerInfo(t *testing.T) {
 	s := New().(*streamer)
-	s.streams[1] = &stream{list: map[*subscriber]struct{}{{}: struct{}{}, {}: struct{}{}}}
-	s.streams[2] = &stream{list: map[*subscriber]struct{}{{}: struct{}{}}}
+	s.streams[1] = &stream{list: map[*subscriber]struct{}{{}: {}, {}: {}}}
+	s.streams[2] = &stream{list: map[*subscriber]struct{}{{}: {}}}
 	s.streams[3] = &stream{list: map[*subscriber]struct{}{}}
 	got := s.Info(context.Background())
 

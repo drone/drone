@@ -63,7 +63,7 @@ func TestStream(t *testing.T) {
 func TestStream_Close(t *testing.T) {
 	s := newStream()
 	s.hist = []*core.Line{
-		&core.Line{},
+		{},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
