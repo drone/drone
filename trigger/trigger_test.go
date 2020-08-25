@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"github.com/drone/drone/core"
 	"github.com/drone/drone/mock"
@@ -97,6 +98,7 @@ func TestTrigger(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	time.Sleep(500 * time.Millisecond)
 	if diff := cmp.Diff(build, dummyBuild, ignoreBuildFields); diff != "" {
 		t.Errorf(diff)
 	}
@@ -160,11 +162,31 @@ func TestTrigger_MissingYaml(t *testing.T) {
 	controller := gomock.NewController(t)
 	defer controller.Finish()
 
+	ignoreBuildFields := cmpopts.IgnoreFields(core.Build{},
+		"Created", "Updated", "Finished", "Started")
+
+	checkBuild := func(_ context.Context, build *core.Build, stages []*core.Stage) {
+		// copy dumy build
+		dummyBuildWithErr := *dummyBuild
+		dummyBuildWithErr.Status = core.StatusError
+		dummyBuildWithErr.Error = "EOF"
+
+		if diff := cmp.Diff(build, &dummyBuildWithErr, ignoreBuildFields); diff != "" {
+			t.Errorf(diff)
+		}
+	}
+
 	mockUsers := mock.NewMockUserStore(controller)
 	mockUsers.EXPECT().Find(noContext, dummyRepo.UserID).Return(dummyUser, nil)
 
 	mockConfigService := mock.NewMockConfigService(controller)
 	mockConfigService.EXPECT().Find(gomock.Any(), gomock.Any()).Return(nil, io.EOF)
+
+	mockRepos := mock.NewMockRepositoryStore(controller)
+	mockRepos.EXPECT().Increment(gomock.Any(), dummyRepo).Return(dummyRepo, nil)
+
+	mockBuilds := mock.NewMockBuildStore(controller)
+	mockBuilds.EXPECT().Create(gomock.Any(), gomock.Any(), nil).Do(checkBuild).Return(nil)
 
 	triggerer := New(
 		nil,
@@ -172,25 +194,42 @@ func TestTrigger_MissingYaml(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		mockBuilds,
 		nil,
-		nil,
-		nil,
+		mockRepos,
 		mockUsers,
 		nil,
 		nil,
 	)
 
 	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
-	if err == nil {
-		t.Errorf("Expect error when yaml not found")
+	if err != nil {
+		t.Errorf("Yaml not found should return no error as config is ran async")
 	}
+	// wait for goroutine to complete
+	time.Sleep(500 * time.Millisecond)
 }
 
 // this test verifies that if the system cannot parse the yaml
-// configuration file, the function must exit with an error.
+// configuration file, the function exits with no error and the build
+// is created with an error.
 func TestTrigger_ErrorYaml(t *testing.T) {
 	controller := gomock.NewController(t)
 	defer controller.Finish()
+
+	ignoreBuildFields := cmpopts.IgnoreFields(core.Build{},
+		"Created", "Updated", "Finished", "Started")
+
+	checkBuild := func(_ context.Context, build *core.Build, stages []*core.Stage) {
+		// copy dumy build
+		dummyBuildWithErr := *dummyBuild
+		dummyBuildWithErr.Status = core.StatusError
+		dummyBuildWithErr.Error = "yaml: found unknown directive name"
+
+		if diff := cmp.Diff(build, &dummyBuildWithErr, ignoreBuildFields); diff != "" {
+			t.Errorf(diff)
+		}
+	}
 
 	mockUsers := mock.NewMockUserStore(controller)
 	mockUsers.EXPECT().Find(noContext, dummyRepo.UserID).Return(dummyUser, nil)
@@ -205,7 +244,7 @@ func TestTrigger_ErrorYaml(t *testing.T) {
 	mockRepos.EXPECT().Increment(gomock.Any(), dummyRepo).Return(dummyRepo, nil)
 
 	mockBuilds := mock.NewMockBuildStore(controller)
-	mockBuilds.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil) // .Do(checkBuild).Return(nil)
+	mockBuilds.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Do(checkBuild).Return(nil)
 
 	triggerer := New(
 		nil,
@@ -221,20 +260,12 @@ func TestTrigger_ErrorYaml(t *testing.T) {
 		nil,
 	)
 
-	build, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
+	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if got, want := build.Status, core.StatusError; got != want {
-		t.Errorf("Want status %s, got %s", want, got)
-	}
-	if got, want := build.Error, "yaml: found unknown directive name"; got != want {
-		t.Errorf("Want error %s, got %s", want, got)
-	}
-	if build.Finished == 0 {
-		t.Errorf("Want non-zero finished time")
-	}
+	time.Sleep(500 * time.Millisecond)
 }
 
 // this test verifies that no build should be scheduled if the
@@ -245,6 +276,9 @@ func TestTrigger_SkipBranch(t *testing.T) {
 
 	mockUsers := mock.NewMockUserStore(controller)
 	mockUsers.EXPECT().Find(noContext, dummyRepo.UserID).Return(dummyUser, nil)
+
+	mockRepos := mock.NewMockRepositoryStore(controller)
+	mockRepos.EXPECT().Increment(gomock.Any(), dummyRepo).Return(dummyRepo, nil)
 
 	mockConfigService := mock.NewMockConfigService(controller)
 	mockConfigService.EXPECT().Find(gomock.Any(), gomock.Any()).Return(dummyYamlSkipBranch, nil)
@@ -263,7 +297,7 @@ func TestTrigger_SkipBranch(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		mockRepos,
 		mockUsers,
 		mockValidateService,
 		nil,
@@ -273,6 +307,7 @@ func TestTrigger_SkipBranch(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expect build silently skipped if branch does not match")
 	}
+	time.Sleep(500 * time.Millisecond)
 }
 
 // this test verifies that no build should be scheduled if the
@@ -283,6 +318,9 @@ func TestTrigger_SkipEvent(t *testing.T) {
 
 	mockUsers := mock.NewMockUserStore(controller)
 	mockUsers.EXPECT().Find(noContext, dummyRepo.UserID).Return(dummyUser, nil)
+
+	mockRepos := mock.NewMockRepositoryStore(controller)
+	mockRepos.EXPECT().Increment(gomock.Any(), dummyRepo).Return(dummyRepo, nil)
 
 	mockConfigService := mock.NewMockConfigService(controller)
 	mockConfigService.EXPECT().Find(gomock.Any(), gomock.Any()).Return(dummyYamlSkipEvent, nil)
@@ -301,7 +339,7 @@ func TestTrigger_SkipEvent(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		mockRepos,
 		mockUsers,
 		mockValidateService,
 		nil,
@@ -311,6 +349,7 @@ func TestTrigger_SkipEvent(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expect build silently skipped if event does not match")
 	}
+	time.Sleep(500 * time.Millisecond)
 }
 
 // this test verifies that no build should be scheduled if the
@@ -321,6 +360,9 @@ func TestTrigger_SkipAction(t *testing.T) {
 
 	mockUsers := mock.NewMockUserStore(controller)
 	mockUsers.EXPECT().Find(noContext, dummyRepo.UserID).Return(dummyUser, nil)
+
+	mockRepos := mock.NewMockRepositoryStore(controller)
+	mockRepos.EXPECT().Increment(gomock.Any(), dummyRepo).Return(dummyRepo, nil)
 
 	mockConfigService := mock.NewMockConfigService(controller)
 	mockConfigService.EXPECT().Find(gomock.Any(), gomock.Any()).Return(dummyYamlSkipAction, nil)
@@ -339,7 +381,7 @@ func TestTrigger_SkipAction(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		mockRepos,
 		mockUsers,
 		mockValidateService,
 		nil,
@@ -349,6 +391,7 @@ func TestTrigger_SkipAction(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expect build silently skipped if action does not match")
 	}
+	time.Sleep(500 * time.Millisecond)
 }
 
 // this test verifies that if the system cannot increment the
@@ -364,26 +407,17 @@ func TestTrigger_ErrorIncrement(t *testing.T) {
 	mockRepos := mock.NewMockRepositoryStore(controller)
 	mockRepos.EXPECT().Increment(gomock.Any(), dummyRepo).Return(nil, sql.ErrNoRows)
 
-	mockConfigService := mock.NewMockConfigService(controller)
-	mockConfigService.EXPECT().Find(gomock.Any(), gomock.Any()).Return(dummyYaml, nil)
-
-	mockConvertService := mock.NewMockConvertService(controller)
-	mockConvertService.EXPECT().Convert(gomock.Any(), gomock.Any()).Return(dummyYaml, nil)
-
-	mockValidateService := mock.NewMockValidateService(controller)
-	mockValidateService.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(nil)
-
 	triggerer := New(
 		nil,
-		mockConfigService,
-		mockConvertService,
+		nil,
+		nil,
 		nil,
 		nil,
 		nil,
 		nil,
 		mockRepos,
 		mockUsers,
-		mockValidateService,
+		nil,
 		nil,
 	)
 

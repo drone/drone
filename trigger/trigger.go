@@ -140,38 +140,26 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 		}
 	}
 
-	// // some tag hooks provide the tag but do not provide the sha.
-	// // this may be important if we want to fetch the .drone.yml
-	// if base.After == "" && base.Event == core.EventTag {
-	// 	tag, _, err := t.client.Git.FindTag(ctx, repo.Slug, base.Ref)
-	// 	if err != nil {
-	// 		logger.Error().Err(err).
-	// 			Msg("cannot find tag")
-	// 		return nil, err
-	// 	}
-	// 	base.After = tag.Sha
-	// }
+	// increment build sequence
+	repo, err = t.repos.Increment(ctx, repo)
+	if err != nil {
+		logger = logger.WithError(err)
+		logger.Errorln("trigger: cannot increment build sequence")
+		return nil, err
+	}
 
-	// TODO: do a better job of documenting this
-	// obj := base.After
-	// if len(obj) == 0 {
-	// 	if strings.HasPrefix(base.Ref, "refs/pull/") {
-	// 		obj = base.Target
-	// 	} else {
-	// 		obj = base.Ref
-	// 	}
-	// }
-	tmpBuild := &core.Build{
+	build := &core.Build{
 		RepoID:  repo.ID,
 		Trigger: base.Trigger,
+		Number:  repo.Counter,
 		Parent:  base.Parent,
 		Status:  core.StatusPending,
 		Event:   base.Event,
 		Action:  base.Action,
 		Link:    base.Link,
 		// Timestamp:    base.Timestamp,
-		Title:        base.Title,
-		Message:      base.Message,
+		Title:        trunc(base.Title, 2000),
+		Message:      trunc(base.Message, 2000),
 		Before:       base.Before,
 		After:        base.After,
 		Ref:          base.Ref,
@@ -183,35 +171,77 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 		AuthorEmail:  base.AuthorEmail,
 		AuthorAvatar: base.AuthorAvatar,
 		Params:       base.Params,
-		Cron:         base.Cron,
 		Deploy:       base.Deployment,
 		DeployID:     base.DeploymentID,
 		Sender:       base.Sender,
+		Cron:         base.Cron,
 		Created:      time.Now().Unix(),
 		Updated:      time.Now().Unix(),
 	}
+
+	go t.createBuild(logger, user, repo, base, build)
+
+	return build, nil
+}
+
+func trunc(s string, i int) string {
+	runes := []rune(s)
+	if len(runes) > i {
+		return string(runes[:i])
+	}
+	return s
+}
+
+func (t *triggerer) createBuild(logger *logrus.Entry, user *core.User, repo *core.Repository, base *core.Hook, build *core.Build) {
+	defer func() {
+		// taking the paranoid approach to recover from
+		// a panic that should absolutely never happen.
+		if r := recover(); r != nil {
+			logger.Errorf("runner: unexpected panic: %s", r)
+			debug.PrintStack()
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		time.Duration(repo.Timeout)*time.Minute,
+	)
+	defer cancel()
+
 	req := &core.ConfigArgs{
 		User:  user,
 		Repo:  repo,
-		Build: tmpBuild,
+		Build: build,
 	}
 	raw, err := t.config.Find(ctx, req)
 	if err != nil {
 		logger = logger.WithError(err)
 		logger.Warnln("trigger: cannot find yaml")
-		return nil, err
+
+		_, err := t.createBuildError(ctx, repo, base, err.Error())
+		if err != nil {
+			logger = logger.WithError(err)
+			logger.Errorln("trigger: error creating build with error")
+		}
+		return
 	}
 
 	raw, err = t.convert.Convert(ctx, &core.ConvertArgs{
 		User:   user,
 		Repo:   repo,
-		Build:  tmpBuild,
+		Build:  build,
 		Config: raw,
 	})
 	if err != nil {
 		logger = logger.WithError(err)
 		logger.Warnln("trigger: cannot convert yaml")
-		return t.createBuildError(ctx, repo, base, err.Error())
+
+		_, err := t.createBuildError(ctx, repo, base, err.Error())
+		if err != nil {
+			logger = logger.WithError(err)
+			logger.Errorln("trigger: error creating build with error")
+		}
+		return
 	}
 
 	// this code is temporarily in place to detect and convert
@@ -224,33 +254,57 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 	if err != nil {
 		logger = logger.WithError(err)
 		logger.Warnln("trigger: cannot convert yaml")
-		return t.createBuildError(ctx, repo, base, err.Error())
+
+		_, err := t.createBuildError(ctx, repo, base, err.Error())
+		if err != nil {
+			logger = logger.WithError(err)
+			logger.Errorln("trigger: error creating build with error")
+		}
+		return
 	}
 
 	manifest, err := yaml.ParseString(raw.Data)
 	if err != nil {
 		logger = logger.WithError(err)
 		logger.Warnln("trigger: cannot parse yaml")
-		return t.createBuildError(ctx, repo, base, err.Error())
+
+		_, err := t.createBuildError(ctx, repo, base, err.Error())
+		if err != nil {
+			logger = logger.WithError(err)
+			logger.Errorln("trigger: error creating build with error")
+		}
+		return
 	}
 
 	err = t.validate.Validate(ctx, &core.ValidateArgs{
 		User:   user,
 		Repo:   repo,
-		Build:  tmpBuild,
+		Build:  build,
 		Config: raw,
 	})
 	if err != nil {
 		logger = logger.WithError(err)
 		logger.Warnln("trigger: yaml validation error")
-		return t.createBuildError(ctx, repo, base, err.Error())
+
+		_, err := t.createBuildError(ctx, repo, base, err.Error())
+		if err != nil {
+			logger = logger.WithError(err)
+			logger.Errorln("trigger: error creating build with error")
+		}
+		return
 	}
 
 	err = linter.Manifest(manifest, repo.Trusted)
 	if err != nil {
 		logger = logger.WithError(err)
 		logger.Warnln("trigger: yaml linting error")
-		return t.createBuildError(ctx, repo, base, err.Error())
+
+		_, err := t.createBuildError(ctx, repo, base, err.Error())
+		if err != nil {
+			logger = logger.WithError(err)
+			logger.Errorln("trigger: error creating build with error")
+		}
+		return
 	}
 
 	verified := true
@@ -313,50 +367,18 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 	}
 
 	if dag.DetectCycles() {
-		return t.createBuildError(ctx, repo, base, "Error: Dependency cycle detected in Pipeline")
+		_, err := t.createBuildError(ctx, repo, base, "Error: Dependency cycle detected in Pipeline")
+		if err != nil {
+			logger = logger.WithError(err)
+			logger.Errorln("trigger: error creating build with error")
+		}
+
+		return
 	}
 
 	if len(matched) == 0 {
 		logger.Infoln("trigger: skipping build, no matching pipelines")
-		return nil, nil
-	}
-
-	repo, err = t.repos.Increment(ctx, repo)
-	if err != nil {
-		logger = logger.WithError(err)
-		logger.Errorln("trigger: cannot increment build sequence")
-		return nil, err
-	}
-
-	build := &core.Build{
-		RepoID:  repo.ID,
-		Trigger: base.Trigger,
-		Number:  repo.Counter,
-		Parent:  base.Parent,
-		Status:  core.StatusPending,
-		Event:   base.Event,
-		Action:  base.Action,
-		Link:    base.Link,
-		// Timestamp:    base.Timestamp,
-		Title:        trunc(base.Title, 2000),
-		Message:      trunc(base.Message, 2000),
-		Before:       base.Before,
-		After:        base.After,
-		Ref:          base.Ref,
-		Fork:         base.Fork,
-		Source:       base.Source,
-		Target:       base.Target,
-		Author:       base.Author,
-		AuthorName:   base.AuthorName,
-		AuthorEmail:  base.AuthorEmail,
-		AuthorAvatar: base.AuthorAvatar,
-		Params:       base.Params,
-		Deploy:       base.Deployment,
-		DeployID:     base.DeploymentID,
-		Sender:       base.Sender,
-		Cron:         base.Cron,
-		Created:      time.Now().Unix(),
-		Updated:      time.Now().Unix(),
+		return
 	}
 
 	stages := make([]*core.Stage, len(matched))
@@ -426,7 +448,7 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 	if err != nil {
 		logger = logger.WithError(err)
 		logger.Errorln("trigger: cannot create build")
-		return nil, err
+		return
 	}
 
 	err = t.status.Send(ctx, user, &core.StatusInput{
@@ -446,7 +468,7 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 		if err != nil {
 			logger = logger.WithError(err)
 			logger.Errorln("trigger: cannot enqueue build")
-			return nil, err
+			return
 		}
 	}
 
@@ -485,24 +507,9 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 	// 			Msg("cannot sync cronjobs")
 	// 	}
 	// }
-
-	return build, nil
-}
-
-func trunc(s string, i int) string {
-	runes := []rune(s)
-	if len(runes) > i {
-		return string(runes[:i])
-	}
-	return s
 }
 
 func (t *triggerer) createBuildError(ctx context.Context, repo *core.Repository, base *core.Hook, message string) (*core.Build, error) {
-	repo, err := t.repos.Increment(ctx, repo)
-	if err != nil {
-		return nil, err
-	}
-
 	build := &core.Build{
 		RepoID: repo.ID,
 		Number: repo.Counter,
@@ -534,7 +541,7 @@ func (t *triggerer) createBuildError(ctx context.Context, repo *core.Repository,
 		Finished:     time.Now().Unix(),
 	}
 
-	err = t.builds.Create(ctx, build, nil)
+	err := t.builds.Create(ctx, build, nil)
 	return build, err
 }
 
