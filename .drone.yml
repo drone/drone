@@ -116,6 +116,44 @@ depends_on:
 ---
 kind: pipeline
 type: docker
+name: linux-ppc64le
+
+platform:
+  arch: ppc64le
+  os: linux
+
+steps:
+- name: build
+  image: golang:1.14.4
+  commands:
+  - sh scripts/build.sh
+  environment:
+    GOARCH: ppc64le
+    GOOS: linux
+
+- name: publish
+  image: plugins/docker:18
+  settings:
+    auto_tag: true
+    auto_tag_suffix: linux-ppc64le
+    dockerfile: docker/Dockerfile.server.linux.ppc64le
+    repo: drone/drone
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+trigger:
+  event:
+  - push
+  - tag
+
+depends_on:
+- linux-amd64
+
+---
+kind: pipeline
+type: docker
 name: manifest
 
 steps:

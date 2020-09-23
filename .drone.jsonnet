@@ -96,6 +96,7 @@ local pipeline(name, os, arch) = {
     pipeline("linux-amd64", "linux", "amd64"),
     pipeline("linux-arm", "linux", "arm"),
     pipeline("linux-arm64", "linux", "arm64"),
+    pipeline("linux-ppc64le", "linux", "ppc64le"),
     {
         kind: "pipeline",
         name: "manifest",
@@ -108,6 +109,7 @@ local pipeline(name, os, arch) = {
           "linux-amd64",
           "linux-arm",
           "linux-arm64",
+          "linux-ppc64le",
         ],
     },
 ]

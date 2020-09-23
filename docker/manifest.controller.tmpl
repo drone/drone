@@ -24,6 +24,11 @@ manifests:
       os: linux
       variant: v7
   -
+    image: drone/controller:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}linux-ppc64le
+    platform:
+      architecture: ppc64le
+      os: linux
+  -
     image: drone/controller:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}windows-1803-amd64
     platform:
       architecture: amd64

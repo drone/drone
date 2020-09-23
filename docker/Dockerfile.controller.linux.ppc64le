@@ -1,0 +1,15 @@
+FROM alpine:3.11 as alpine
+RUN apk add -U --no-cache ca-certificates
+
+FROM alpine:3.11
+ENV GODEBUG=netdns=go
+ENV DRONE_RUNNER_OS=linux
+ENV DRONE_RUNNER_ARCH=ppc64le
+ENV DRONE_RUNNER_PLATFORM=linux/ppc64le
+ENV DRONE_RUNNER_CAPACITY=1
+ENV DRONE_RUNNER_VARIANT=v8
+ADD release/linux/ppc64le/drone-controller /bin/
+
+COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+ENTRYPOINT ["/bin/drone-controller"]

@@ -165,6 +165,7 @@ const (
 	linuxArm8
 	linuxArm9
 	linuxAmd64
+	linuxPpc64le
 	windows1709
 	windows1803
 	windows1809
@@ -173,12 +174,13 @@ const (
 // helper function returns a list of all platforms
 // and variants currently supported by core.
 func newPlatformList() []*platform {
-	platforms := [8]*platform{}
+	platforms := [9]*platform{}
 	platforms[linuxArm6] = &platform{OS: "linux", Arch: "arm", Variant: "v6"}
 	platforms[linuxArm7] = &platform{OS: "linux", Arch: "arm", Variant: "v7"}
 	platforms[linuxArm8] = &platform{OS: "linux", Arch: "arm64", Variant: "v8"}
 	platforms[linuxArm9] = &platform{OS: "linux", Arch: "arm", Variant: "v9"}
 	platforms[linuxAmd64] = &platform{OS: "linux", Arch: "amd64"}
+	platforms[linuxPpc64le] = &platform{OS: "linux", Arch: "ppc64le"}
 	platforms[windows1709] = &platform{OS: "windows", Arch: "arm64", Kernel: "1709"}
 	platforms[windows1803] = &platform{OS: "windows", Arch: "arm64", Kernel: "1803"}
 	platforms[windows1809] = &platform{OS: "windows", Arch: "arm64", Kernel: "1809"}
@@ -214,6 +216,8 @@ func aggregatePlatformStats(platforms []*platform, stages []*core.Stage) {
 		case stage.Arch == "arm64":
 			// default to arm8 when arm64
 			index = linuxArm8
+		case stage.Arch == "ppc64le":
+			index = linuxPpc64le
 		default:
 			index = linuxAmd64
 			continue

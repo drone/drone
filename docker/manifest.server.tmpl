@@ -23,3 +23,8 @@ manifests:
       architecture: arm
       os: linux
       variant: v7
+  -
+    image: drone/drone:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}linux-ppc64le
+    platform:
+      architecture: ppc64le
+      os: linux
