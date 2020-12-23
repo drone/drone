@@ -9,6 +9,7 @@ package trigger
 import (
 	"context"
 	"database/sql"
+	"github.com/drone/drone/cmd/drone-server/config"
 	"io"
 	"io/ioutil"
 	"testing"
@@ -90,6 +91,7 @@ func TestTrigger(t *testing.T) {
 		mockUsers,
 		mockValidateService,
 		mockWebhooks,
+		config.Trigger{},
 	)
 
 	build, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
@@ -99,6 +101,35 @@ func TestTrigger(t *testing.T) {
 	}
 	if diff := cmp.Diff(build, dummyBuild, ignoreBuildFields); diff != "" {
 		t.Errorf(diff)
+	}
+}
+
+// this test verifies that hook is ignored if the event
+// or action match trigger filter
+func TestTrigger_SkipCIByEventAndAction(t *testing.T) {
+	triggerer := New(
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		config.Trigger{
+			EventActionAllow: "tag",
+		},
+	)
+	dummyHookSkip := *dummyHook
+	b, err := triggerer.Trigger(noContext, dummyRepo, &dummyHookSkip)
+	if err != nil {
+		t.Error(err)
+	}
+	if b != nil {
+		t.Errorf("expect get nil build, but get a build")
 	}
 }
 
@@ -117,6 +148,7 @@ func TestTrigger_SkipCI(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		config.Trigger{},
 	)
 	dummyHookSkip := *dummyHook
 	dummyHookSkip.Message = "foo [CI SKIP] bar"
@@ -146,6 +178,7 @@ func TestTrigger_NoOwner(t *testing.T) {
 		mockUsers,
 		nil,
 		nil,
+		config.Trigger{},
 	)
 
 	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
@@ -178,6 +211,7 @@ func TestTrigger_MissingYaml(t *testing.T) {
 		mockUsers,
 		nil,
 		nil,
+		config.Trigger{},
 	)
 
 	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
@@ -219,6 +253,7 @@ func TestTrigger_ErrorYaml(t *testing.T) {
 		mockUsers,
 		nil,
 		nil,
+		config.Trigger{},
 	)
 
 	build, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
@@ -267,6 +302,7 @@ func TestTrigger_SkipBranch(t *testing.T) {
 		mockUsers,
 		mockValidateService,
 		nil,
+		config.Trigger{},
 	)
 
 	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
@@ -305,6 +341,7 @@ func TestTrigger_SkipEvent(t *testing.T) {
 		mockUsers,
 		mockValidateService,
 		nil,
+		config.Trigger{},
 	)
 
 	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
@@ -343,6 +380,7 @@ func TestTrigger_SkipAction(t *testing.T) {
 		mockUsers,
 		mockValidateService,
 		nil,
+		config.Trigger{},
 	)
 
 	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)
@@ -385,6 +423,7 @@ func TestTrigger_ErrorIncrement(t *testing.T) {
 		mockUsers,
 		mockValidateService,
 		nil,
+		config.Trigger{},
 	)
 
 	_, err := triggerer.Trigger(noContext, dummyRepo, dummyHook)

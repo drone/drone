@@ -62,7 +62,7 @@ func InitializeApplication(config2 config.Config) (application, error) {
 	configService := provideConfigPlugin(client, fileService, config2)
 	convertService := provideConvertPlugin(client, config2)
 	validateService := provideValidatePlugin(config2)
-	triggerer := trigger.New(coreCanceler, configService, convertService, commitService, statusService, buildStore, scheduler, repositoryStore, userStore, validateService, webhookSender)
+	triggerer := trigger.New(coreCanceler, configService, convertService, commitService, statusService, buildStore, scheduler, repositoryStore, userStore, validateService, webhookSender, config2.Trigger)
 	cronScheduler := cron2.New(commitService, cronStore, repositoryStore, userStore, triggerer)
 	reaper := provideReaper(repositoryStore, buildStore, stageStore, coreCanceler, config2)
 	coreLicense := provideLicense(client, config2)

@@ -79,6 +79,7 @@ type (
 		Validate     Validate
 		Webhook      Webhook
 		Yaml         Yaml
+		Trigger      Trigger
 
 		// Remote configurations
 		Bitbucket Bitbucket
@@ -322,6 +323,11 @@ type (
 		Secret     string        `envconfig:"DRONE_YAML_SECRET"`
 		SkipVerify bool          `envconfig:"DRONE_YAML_SKIP_VERIFY"`
 		Timeout    time.Duration `envconfig:"DRONE_YAML_TIMEOUT" default:"1m"`
+	}
+
+	// Trigger provides the trigger configuration.
+	Trigger struct {
+		EventActionAllow string `envconfig:"DRONE_TRIGGER_ALLOW"`
 	}
 
 	// Convert provides the converter webhook configuration.

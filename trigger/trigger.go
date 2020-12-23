@@ -16,6 +16,7 @@ package trigger
 
 import (
 	"context"
+	"github.com/drone/drone/cmd/drone-server/config"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -43,6 +44,7 @@ type triggerer struct {
 	users    core.UserStore
 	validate core.ValidateService
 	hooks    core.WebhookSender
+	filter   config.Trigger
 }
 
 // New returns a new build triggerer.
@@ -58,6 +60,7 @@ func New(
 	users core.UserStore,
 	validate core.ValidateService,
 	hooks core.WebhookSender,
+	filter config.Trigger,
 ) core.Triggerer {
 	return &triggerer{
 		canceler: canceler,
@@ -71,7 +74,38 @@ func New(
 		users:    users,
 		validate: validate,
 		hooks:    hooks,
+		filter:   filter,
 	}
+}
+
+func (t *triggerer) isAllowed(base *core.Hook) bool {
+	if t.filter.EventActionAllow == "" {
+		return true
+	}
+
+	for _, item := range strings.Split(t.filter.EventActionAllow, ",") {
+		var event, action string
+		event_action := strings.SplitN(item, ".", 2)
+		switch len(event_action) {
+		case 1:
+			event = event_action[0]
+		default:
+			event = event_action[0]
+			action = event_action[1]
+		}
+
+		if base.Event != event {
+			continue
+		}
+
+		if action != "" && base.Action != action {
+			continue
+		}
+
+		return true
+	}
+
+	return false
 }
 
 func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *core.Hook) (*core.Build, error) {
@@ -98,6 +132,13 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 		logger.Infoln("trigger: skipping hook. found skip directive")
 		return nil, nil
 	}
+
+	// global trigger filter
+	if !t.isAllowed(base) {
+		logger.Infoln("trigger: skipping hook. global trigger not allowed")
+		return nil, nil
+	}
+
 	if base.Event == core.EventPullRequest {
 		if repo.IgnorePulls {
 			logger.Infoln("trigger: skipping hook. project ignores pull requests")
