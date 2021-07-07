@@ -15,6 +15,7 @@
 package runner
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"regexp"
 	"strings"
@@ -43,6 +44,8 @@ func agentEnviron(runner *Runner) map[string]string {
 }
 
 func repoEnviron(repo *core.Repository) map[string]string {
+	h := sha256.New()
+	fmt.Fprint(h, repo.ID, repo.UserID, repo.Slug)
 	return map[string]string{
 		"DRONE_REPO":            repo.Slug,
 		"DRONE_REPO_SCM":        repo.SCM,
@@ -56,6 +59,7 @@ func repoEnviron(repo *core.Repository) map[string]string {
 		"DRONE_GIT_SSH_URL":     repo.SSHURL,
 		"DRONE_REPO_VISIBILITY": repo.Visibility,
 		"DRONE_REPO_PRIVATE":    fmt.Sprint(repo.Private),
+		"DRONE_REPO_TOKEN":      fmt.Sprintf("%x", h.Sum(nil)),
 
 		//
 		// these are legacy configuration parameters for backward
@@ -71,6 +75,8 @@ func repoEnviron(repo *core.Repository) map[string]string {
 }
 
 func stageEnviron(stage *core.Stage) map[string]string {
+	h := sha256.New()
+	fmt.Fprint(h, stage.RepoID, stage.BuildID, stage.ID)
 	return map[string]string{
 		"DRONE_STAGE_KIND":       "pipeline",
 		"DRONE_STAGE_NAME":       stage.Name,
@@ -80,10 +86,13 @@ func stageEnviron(stage *core.Stage) map[string]string {
 		"DRONE_STAGE_ARCH":       stage.Arch,
 		"DRONE_STAGE_VARIANT":    stage.Variant,
 		"DRONE_STAGE_DEPENDS_ON": strings.Join(stage.DependsOn, ","),
+		"DRONE_STAGE_TOKEN":      fmt.Sprintf("%x", h.Sum(nil)),
 	}
 }
 
 func buildEnviron(build *core.Build) map[string]string {
+	h := sha256.New()
+	fmt.Fprint(h, build.RepoID, build.ID, build.After)
 	env := map[string]string{
 		"DRONE_BRANCH":               build.Target,
 		"DRONE_SOURCE_BRANCH":        build.Source,
@@ -106,6 +115,7 @@ func buildEnviron(build *core.Build) map[string]string {
 		"DRONE_BUILD_CREATED":        fmt.Sprint(build.Created),
 		"DRONE_BUILD_STARTED":        fmt.Sprint(build.Started),
 		"DRONE_BUILD_FINISHED":       fmt.Sprint(build.Finished),
+		"DRONE_BUILD_TOKEN":          fmt.Sprintf("%x", h.Sum(nil)),
 		"DRONE_DEPLOY_TO":            build.Deploy,
 
 		//
