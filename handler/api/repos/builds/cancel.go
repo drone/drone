@@ -74,8 +74,7 @@ func HandleCancel(
 			return
 		}
 
-		done := build.Status != core.StatusPending &&
-			build.Status != core.StatusRunning
+		done := build.IsDone()
 
 		// do not cancel the build if the build status is
 		// complete. only cancel the build if the status is
