@@ -42,7 +42,7 @@ func (c *combined) Convert(ctx context.Context, req *core.ConvertArgs) (*core.Co
 		if config.Data == "" {
 			continue
 		}
-		return config, nil
+		req.Config = config
 	}
 	return req.Config, nil
 }
