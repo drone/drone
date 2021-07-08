@@ -56,7 +56,7 @@ func TestHandleCreate(t *testing.T) {
 	got, want := &core.Cron{}, dummyCron
 	json.NewDecoder(w.Body).Decode(got)
 
-	ignore := cmpopts.IgnoreFields(core.Cron{}, "Next")
+	ignore := cmpopts.IgnoreFields(core.Cron{}, "Next", "Prev")
 	if diff := cmp.Diff(got, want, ignore); len(diff) != 0 {
 		t.Errorf(diff)
 	}

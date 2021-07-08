@@ -183,7 +183,7 @@ ORDER BY cron_name
 
 const queryReady = queryBase + `
 FROM cron
-WHERE cron_next < :cron_next
+WHERE cron_next <= :cron_next
 ORDER BY cron_name
 `
 

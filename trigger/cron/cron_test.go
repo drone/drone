@@ -44,9 +44,6 @@ func TestCron(t *testing.T) {
 
 	before := time.Now().Unix()
 	checkCron := func(_ context.Context, cron *core.Cron) {
-		if got, want := cron.Prev, int64(2000000000); got != want {
-			t.Errorf("Expect Next copied to Prev")
-		}
 		if before > cron.Next {
 			t.Errorf("Expect Next is set to unix timestamp")
 		}
@@ -76,7 +73,7 @@ func TestCron(t *testing.T) {
 		trigger: mockTriggerer,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -111,7 +108,7 @@ func TestCron_ErrorList(t *testing.T) {
 		users:   nil,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	if err == nil {
 		t.Errorf("Want error when the select cron query fails")
 	}
@@ -148,7 +145,7 @@ func TestCron_ErrorCronParse(t *testing.T) {
 		trigger: mockTriggerer,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	merr := err.(*multierror.Error)
 	if got, want := len(merr.Errors), 1; got != want {
 		t.Errorf("Want %d errors, got %d", want, got)
@@ -188,7 +185,7 @@ func TestCron_ErrorFindRepo(t *testing.T) {
 		trigger: mockTriggerer,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	merr := err.(*multierror.Error)
 	if got, want := len(merr.Errors), 1; got != want {
 		t.Errorf("Want %d errors, got %d", want, got)
@@ -228,7 +225,7 @@ func TestCron_ErrorUpdateCron(t *testing.T) {
 		trigger: mockTriggerer,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	merr := err.(*multierror.Error)
 	if got, want := len(merr.Errors), 1; got != want {
 		t.Errorf("Want %d errors, got %d", want, got)
@@ -271,7 +268,7 @@ func TestCron_ErrorFindUser(t *testing.T) {
 		trigger: mockTriggerer,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	merr := err.(*multierror.Error)
 	if got, want := len(merr.Errors), 1; got != want {
 		t.Errorf("Want %d errors, got %d", want, got)
@@ -314,7 +311,7 @@ func TestCron_ErrorFindCommit(t *testing.T) {
 		trigger: mockTriggerer,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	merr := err.(*multierror.Error)
 	if got, want := len(merr.Errors), 1; got != want {
 		t.Errorf("Want %d errors, got %d", want, got)
@@ -356,7 +353,7 @@ func TestCron_ErrorTrigger(t *testing.T) {
 		trigger: mockTriggerer,
 	}
 
-	err := s.run(noContext)
+	err := s.run(noContext, false)
 	merr := err.(*multierror.Error)
 	if got, want := len(merr.Errors), 1; got != want {
 		t.Errorf("Want %d errors, got %d", want, got)

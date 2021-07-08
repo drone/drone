@@ -112,6 +112,9 @@ func (c *Cron) Update() error {
 	if err != nil {
 		return err
 	}
-	c.Next = sched.Next(time.Now()).Unix()
+	now := time.Now()
+	//Prev is needed to avoid job alignement on "@every XX" type cronjobs
+	c.Prev = now.Unix()
+	c.Next = sched.Next(now).Unix()
 	return nil
 }

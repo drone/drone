@@ -46,6 +46,9 @@ type Scheduler struct {
 
 // Start starts the cron scheduler.
 func (s *Scheduler) Start(ctx context.Context, dur time.Duration) error {
+	// first execution will  update only cron info, won't trigger jobs
+	s.run(ctx, true)
+
 	ticker := time.NewTicker(dur)
 	defer ticker.Stop()
 
@@ -54,15 +57,22 @@ func (s *Scheduler) Start(ctx context.Context, dur time.Duration) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			s.run(ctx)
+			start := time.Now()
+			s.run(ctx, false)
+			elapsed := time.Since(start)
+			logrus.Infof("cron: job processed in [%s]", elapsed)
+			//check if processing time  greater than cron interval
+			if elapsed.Seconds() > dur.Seconds() {
+				logrus.Warnf("cron: job sched has been take [%s] more than scheduled time [%s] ", elapsed, dur)
+			}
 		}
 	}
 }
 
-func (s *Scheduler) run(ctx context.Context) error {
+func (s *Scheduler) run(ctx context.Context, isfirst bool) error {
 	var result error
 
-	logrus.Debugln("cron: begin process pending jobs")
+	logrus.Debugf("cron: begin process pending jobs First[%t]", isfirst)
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -96,10 +106,6 @@ func (s *Scheduler) run(ctx context.Context) error {
 			continue
 		}
 
-		// calculate the next execution date.
-		job.Prev = job.Next
-		job.Next = sched.Next(now).Unix()
-
 		logger := logrus.WithFields(
 			logrus.Fields{
 				"repo": job.RepoID,
@@ -107,11 +113,32 @@ func (s *Scheduler) run(ctx context.Context) error {
 			},
 		)
 
+		// calculate the next execution date.
+		prev := time.Unix(job.Prev, 0)
+		next := sched.Next(prev)
+
+		//If past or equal in time, retreive the next valid time until next time will be greater than now
+		for !next.After(now) {
+			prev = next
+			next = sched.Next(next)
+			if !next.After(now) {
+				logger.Warnf("cron: skipped cron job [%s] scheduled in the past at :[%s] NOW [%s]", job.Name, prev, now)
+			}
+		}
+
+		job.Prev = prev.Unix()
+		job.Next = next.Unix()
+
 		err = s.cron.Update(ctx, job)
 		if err != nil {
 			logger := logrus.WithError(err)
 			logger.Warnln("cron: cannot re-schedule job")
 			result = multierror.Append(result, err)
+			continue
+		}
+
+		if isfirst {
+			//if first execution job won't be triggered
 			continue
 		}
 
@@ -122,6 +149,8 @@ func (s *Scheduler) run(ctx context.Context) error {
 			result = multierror.Append(result, err)
 			continue
 		}
+
+		logger.Infof("cron: Next cron job [%s] [%s] will be scheduled  at:[%s]", repo.Name, job.Name, next)
 
 		user, err := s.users.Find(ctx, repo.UserID)
 		if err != nil {
@@ -189,8 +218,8 @@ func (s *Scheduler) run(ctx context.Context) error {
 			result = multierror.Append(result, err)
 			continue
 		}
+		logger.Infof("cron: Current cron job [%s] [%s] scheduled  at : [%s] has been triggered at [%s] ", repo.Name, job.Name, prev, now)
 	}
-
-	logrus.Debugf("cron: finished processing jobs")
+	logrus.Debugf("cron: finished processing jobs Fist[%t]", isfirst)
 	return result
 }
