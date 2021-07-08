@@ -23,40 +23,39 @@ import (
 )
 
 // Static returns a new static credentials controller.
-func Static(secrets []*core.Secret) core.RegistryService {
-	return &staticController{secrets: secrets}
+func Static(secretService core.SecretService) core.RegistryService {
+	return &staticController{secretService: secretService}
 }
 
 type staticController struct {
-	secrets []*core.Secret
+	secretService core.SecretService
 }
 
 func (c *staticController) List(ctx context.Context, in *core.RegistryArgs) ([]*core.Registry, error) {
-	static := map[string]*core.Secret{}
-	for _, secret := range c.secrets {
-		static[secret.Name] = secret
-	}
-
 	var results []*core.Registry
 	for _, name := range in.Pipeline.PullSecrets {
 		logger := logger.FromContext(ctx).WithField("name", name)
-		logger.Trace("registry: database: find secret")
+		logger.Trace("registry: database: find secret");
+		
+		var args = core.SecretArgs{
+			Name: name,
+			Repo:  in.Repo,
+			Build: in.Build,
+			Conf: in.Conf,
+		};
 
-		secret, ok := static[name]
-		if !ok {
+		secret, err := c.secretService.Find(ctx, &args);
+		
+		if err != nil {
+			logger.WithError(err).Error("registry: database: finding secret error")
+			return nil, err
+		}
+
+		if secret == nil {
 			logger.Trace("registry: database: cannot find secret")
 			continue
 		}
-
-		// The secret can be restricted to non-pull request
-		// events. If the secret is restricted, return
-		// empty results.
-		if secret.PullRequest == false &&
-			in.Build.Event == core.EventPullRequest {
-			logger.Trace("registry: database: pull_request access denied")
-			continue
-		}
-
+		
 		logger.Trace("registry: database: secret found")
 		parsed, err := auths.ParseString(secret.Data)
 		if err != nil {

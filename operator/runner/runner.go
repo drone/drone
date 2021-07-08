@@ -248,7 +248,7 @@ func (r *Runner) Run(ctx context.Context, id int64) error {
 		r.Secrets,
 	)
 	registryService := registry.Combine(
-		registry.Static(m.Secrets),
+		registry.Static(secretService),
 		r.Registry,
 	)
 
