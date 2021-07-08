@@ -94,21 +94,6 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 		}
 	}()
 
-	if skipMessage(base) {
-		logger.Infoln("trigger: skipping hook. found skip directive")
-		return nil, nil
-	}
-	if base.Event == core.EventPullRequest {
-		if repo.IgnorePulls {
-			logger.Infoln("trigger: skipping hook. project ignores pull requests")
-			return nil, nil
-		}
-		if repo.IgnoreForks && !strings.EqualFold(base.Fork, repo.Slug) {
-			logger.Infoln("trigger: skipping hook. project ignores forks")
-			return nil, nil
-		}
-	}
-
 	user, err := t.users.Find(ctx, repo.UserID)
 	if err != nil {
 		logger = logger.WithError(err)
@@ -137,6 +122,22 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 			if base.AuthorAvatar == "" {
 				base.AuthorAvatar = commit.Author.Avatar
 			}
+		}
+	}
+	
+	// do skip trigger after base hook has been filled by commit message
+	if skipMessage(base) {
+		logger.Infoln("trigger: skipping hook. found skip directive")
+		return nil, nil
+	}
+	if base.Event == core.EventPullRequest {
+		if repo.IgnorePulls {
+			logger.Infoln("trigger: skipping hook. project ignores pull requests")
+			return nil, nil
+		}
+		if repo.IgnoreForks && !strings.EqualFold(base.Fork, repo.Slug) {
+			logger.Infoln("trigger: skipping hook. project ignores forks")
+			return nil, nil
 		}
 	}
 
