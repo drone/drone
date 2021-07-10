@@ -83,6 +83,193 @@ func Test_skipEvent(t *testing.T) {
 	}
 }
 
+// This verifies the skipEventAction handler behaviour.
+func Test_skipEventAction(t *testing.T) {
+	tests := []struct {
+		config string
+		event  string
+		action string
+		want   bool
+	}{
+		// Push should not be handled [sanity check]
+		{
+			config: "kind: pipeline\ntrigger: { }",
+			event:  "push",
+			action: "created",
+			want:   false,
+		},
+		// Tag should not be handled [sanity check]
+		{
+			config: "kind: pipeline\ntrigger: { }",
+			event:  "tag",
+			action: "created",
+			want:   false,
+		},
+		// Pull request open with opt in for close event [sanity check]
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: [ closed, opened, synchronized ] }",
+			event:  "pull_request",
+			action: "opened",
+			want:   false,
+		},
+		// Pull request synchronized with opt in for close event [sanity check]
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: [ closed, opened, synchronized ] }",
+			event:  "pull_request",
+			action: "synchronized",
+			want:   false,
+		},
+		// Pull request close with opt in for close event
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: [ closed, opened, synchronized ] }",
+			event:  "pull_request",
+			action: "synchronized",
+			want:   false,
+		},
+		// Pull request close without opt in for close event [normal behaviour]
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: [ opened, synchronized ] }",
+			event:  "pull_request",
+			action: "closed",
+			want:   true,
+		},
+		// Pull request close without explicit skip for close. Should still skip
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: { exclude: [ opened, synchronized ] }}",
+			event:  "pull_request",
+			action: "closed",
+			want:   true,
+		},
+		// Pull request opened with exclude for opened
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: { exclude: [ opened, synchronized ] }}",
+			event:  "pull_request",
+			action: "opened",
+			want:   true,
+		},
+		// Pull request with exclude only for opened
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: { exclude: [ opened ] }}",
+			event:  "pull_request",
+			action: "synchronized",
+			want:   false,
+		},
+		// Pull request close with opt in for close.
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ], action: { include: [ closed ] }}",
+			event:  "pull_request",
+			action: "closed",
+			want:   false,
+		},
+		// Pull request open without specifying action
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ]}",
+			event:  "pull_request",
+			action: "opened",
+			want:   false,
+		},
+		// Pull request synchronized specifying action
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ]}",
+			event:  "pull_request",
+			action: "synchronized",
+			want:   false,
+		},
+		// Pull closed synchronized specifying action
+		{
+			config: "kind: pipeline\ntrigger: { event: [ pull_request ]}",
+			event:  "pull_request",
+			action: "closed",
+			want:   true,
+		},
+	}
+
+	for i, test := range tests {
+		manifest, err := yaml.ParseString(test.config)
+		if err != nil {
+			t.Error(err)
+		}
+
+		pipeline := manifest.Resources[0].(*yaml.Pipeline)
+		got, want := skipEventAction(pipeline, test.event, test.action), test.want
+
+		if got != want {
+			t.Errorf("Want test %d to return %v", i, want)
+		}
+	}
+}
+
+func Test_skipPullRequestEval(t *testing.T) {
+	tests := []struct {
+		condition *yaml.Condition
+		action    string
+		want      bool
+	}{
+		// Normal include condition
+		{
+			condition: &yaml.Condition{
+				Include: []string{
+					"closed",
+					"opened",
+					"synchronized",
+				},
+			},
+			action: "opened",
+			want:   false,
+		},
+		// Normal include condition with new property
+		{
+			condition: &yaml.Condition{
+				Include: []string{
+					"closed",
+					"opened",
+					"synchronized",
+				},
+			},
+			action: "closed",
+			want:   false,
+		},
+		// Normal skipped include condition
+		{
+			condition: &yaml.Condition{
+				Include: []string{
+					"closed",
+				},
+			},
+			action: "opened",
+			want:   true,
+		},
+		//  Default to ignoring the closed condition
+		{
+			condition: &yaml.Condition{
+				Include: []string{},
+				Exclude: []string{},
+			},
+			action: "closed",
+			want:   true,
+		},
+		// When some excludes are supplied, still exclude closed.
+		{
+			condition: &yaml.Condition{
+				Include: []string{},
+				Exclude: []string{
+					"synchronized",
+				},
+			},
+			action: "closed",
+			want:   true,
+		},
+	}
+
+	for _, test := range tests {
+		got := skipPullRequestEval(test.condition, test.action)
+		if got != test.want {
+			t.Errorf("Want { condition: %+v, action: %q } to return %v",
+				test.condition, test.action, test.want)
+		}
+	}
+}
+
 // func Test_skipPath(t *testing.T) {
 // 	tests := []struct {
 // 		config string

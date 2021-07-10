@@ -19,6 +19,7 @@ import (
 
 	"github.com/drone/drone-yaml/yaml"
 	"github.com/drone/drone/core"
+	"github.com/drone/go-scm/scm"
 )
 
 func skipBranch(document *yaml.Pipeline, branch string) bool {
@@ -35,6 +36,17 @@ func skipEvent(document *yaml.Pipeline, event string) bool {
 
 func skipAction(document *yaml.Pipeline, action string) bool {
 	return !document.Trigger.Action.Match(action)
+}
+
+// skipEventAction implements event specific logic where the standard "subscribe to all" event logic is not
+// appropriate.
+func skipEventAction(document *yaml.Pipeline, event string, action string) bool {
+	switch event {
+	case core.EventPullRequest:
+		return skipPullRequestEval(&document.Trigger.Action, action)
+	}
+
+	return false
 }
 
 func skipInstance(document *yaml.Pipeline, instance string) bool {
@@ -84,6 +96,34 @@ func skipMessageEval(str string) bool {
 	default:
 		return false
 	}
+}
+
+// skipPullRequestEval determines whether or not to skip pull requests.
+//
+// Pull requests have a special behaviour in that unless the "close" event is deliberately opted in to via "include"
+// it should not be included. This allows users to consume this event class, but does not break BC with users who
+// have pipelines defined before this event was introduced.
+func skipPullRequestEval(condition *yaml.Condition, action string) bool {
+	// If there are conditions and those conditions include this action, allow the pipeline to continue.
+	if len(condition.Include) > 0 && condition.Includes(action) {
+		return false
+	}
+
+	// Verify the event is not deliberately excluded
+	if condition.Excludes(action) {
+		return true
+	}
+
+	// If there are no includes and execludes for this event, see if it matches the defaults:
+	if len(condition.Include) == 0 {
+		switch action {
+		case scm.ActionOpen.String(), scm.ActionSync.String():
+			return false
+		}
+	}
+
+	// If there are still conditions but they do not match this action, the pipeline should be skipped.
+	return true
 }
 
 // func skipPaths(document *config.Config, paths []string) bool {

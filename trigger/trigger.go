@@ -293,10 +293,12 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 		// TODO add instance
 		// TODO add target
 		// TODO add ref
+
 		name := pipeline.Name
 		if name == "" {
 			name = "default"
 		}
+
 		node := dag.Add(pipeline.Name, pipeline.DependsOn...)
 		node.Skip = true
 
@@ -306,6 +308,11 @@ func (t *triggerer) Trigger(ctx context.Context, repo *core.Repository, base *co
 		} else if skipEvent(pipeline, base.Event) {
 			logger = logger.WithField("pipeline", pipeline.Name)
 			logger.Infoln("trigger: skipping pipeline, does not match event")
+		} else if skipEventAction(pipeline, base.Event, base.Action) {
+			logger = logger.WithField("pipeline", pipeline.Name).
+				WithField("event", base.Event).
+				WithField("action", base.Action)
+			logger.Infoln("trigger: skipping pipeline, does not match event and action combination")
 		} else if skipAction(pipeline, base.Action) {
 			logger = logger.WithField("pipeline", pipeline.Name).WithField("action", base.Action)
 			logger.Infoln("trigger: skipping pipeline, does not match action")
