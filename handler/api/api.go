@@ -190,7 +190,7 @@ func (s Server) Handler() http.Handler {
 			).Post("/", repos.HandleEnable(s.Hooks, s.Repos, s.Webhook))
 			r.With(
 				acl.CheckAdminAccess(),
-			).Delete("/", repos.HandleDisable(s.Repos, s.Webhook))
+			).Delete("/", repos.HandleDisable(s.Users, s.Hooks, s.Repos, s.Webhook))
 			r.With(
 				acl.CheckAdminAccess(),
 			).Post("/chown", repos.HandleChown(s.Repos))
