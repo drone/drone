@@ -289,7 +289,8 @@ func (s Server) Handler() http.Handler {
 	})
 
 	r.Route("/badges/{owner}/{name}", func(r chi.Router) {
-		r.Get("/status.svg", badge.Handler(s.Repos, s.Builds))
+		r.Get("/status.svg", badge.Handler(s.Repos, s.Builds, s.Stages))
+		r.Get("/{step}/status.svg", badge.Handler(s.Repos, s.Builds, s.Stages))
 		r.With(
 			acl.InjectRepository(s.Repoz, s.Repos, s.Perms),
 			acl.CheckReadAccess(),

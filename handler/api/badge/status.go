@@ -30,12 +30,15 @@ import (
 func Handler(
 	repos core.RepositoryStore,
 	builds core.BuildStore,
+	stages core.StageStore,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		namespace := chi.URLParam(r, "owner")
 		name := chi.URLParam(r, "name")
 		ref := r.FormValue("ref")
 		branch := r.FormValue("branch")
+		stepName := chi.URLParam(r, "step")
+
 		if branch != "" {
 			ref = "refs/heads/" + branch
 		}
@@ -61,6 +64,40 @@ func Handler(
 		if err != nil {
 			io.WriteString(w, badgeNone)
 			return
+		}
+
+		if stepName != "" {
+			steps, err := stages.ListSteps(r.Context(), build.ID)
+			if err != nil {
+				io.WriteString(w, badgeNone)
+				return
+			}
+
+			// try to find the step by name
+			stepID := -1
+			for k, step := range steps {
+				if step.Name == stepName {
+					stepID = k
+					break
+				}
+			}
+
+			if stepID != -1 {
+				switch steps[stepID].Status {
+				case core.StatusPending, core.StatusRunning, core.StatusBlocked:
+					io.WriteString(w, badgeStarted)
+				case core.StatusPassing:
+					io.WriteString(w, badgeSuccess)
+				case core.StatusError:
+					io.WriteString(w, badgeError)
+				default:
+					io.WriteString(w, badgeFailure)
+				}
+				return
+			} else {
+				io.WriteString(w, badgeNone)
+				return
+			}
 		}
 
 		switch build.Status {

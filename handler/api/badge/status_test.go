@@ -58,6 +58,29 @@ var (
 		Status: core.StatusError,
 		Ref:    "refs/heads/master",
 	}
+
+	mockSteps = []*core.Stage{
+		&core.Stage{
+			ID:     1,
+			RepoID: 1,
+			Name:   "failure-stage",
+			Status: core.StatusFailing,
+		},
+
+		&core.Stage{
+			ID:     2,
+			RepoID: 1,
+			Name:   "running-stage",
+			Status: core.StatusRunning,
+		},
+
+		&core.Stage{
+			ID:     3,
+			RepoID: 1,
+			Name:   "error-stage",
+			Status: core.StatusError,
+		},
+	}
 )
 
 func TestHandler(t *testing.T) {
@@ -70,6 +93,8 @@ func TestHandler(t *testing.T) {
 	builds := mock.NewMockBuildStore(controller)
 	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/develop").Return(mockBuild, nil)
 
+	stages := mock.NewMockStageStore(controller)
+
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
 	c.URLParams.Add("name", "hello-world")
@@ -80,7 +105,7 @@ func TestHandler(t *testing.T) {
 		context.WithValue(context.Background(), chi.RouteCtxKey, c),
 	)
 
-	Handler(repos, builds)(w, r)
+	Handler(repos, builds, stages)(w, r)
 	if got, want := w.Code, 200; want != got {
 		t.Errorf("Want response code %d, got %d", want, got)
 	}
@@ -108,6 +133,8 @@ func TestHandler_Failing(t *testing.T) {
 	builds := mock.NewMockBuildStore(controller)
 	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/master").Return(mockBuildFailing, nil)
 
+	stages := mock.NewMockStageStore(controller)
+
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
 	c.URLParams.Add("name", "hello-world")
@@ -118,7 +145,7 @@ func TestHandler_Failing(t *testing.T) {
 		context.WithValue(context.Background(), chi.RouteCtxKey, c),
 	)
 
-	Handler(repos, builds)(w, r)
+	Handler(repos, builds, stages)(w, r)
 	if got, want := w.Body.String(), string(badgeFailure); got != want {
 		t.Errorf("Want badge %q, got %q", got, want)
 	}
@@ -134,6 +161,8 @@ func TestHandler_Error(t *testing.T) {
 	builds := mock.NewMockBuildStore(controller)
 	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/master").Return(mockBuildError, nil)
 
+	stages := mock.NewMockStageStore(controller)
+
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
 	c.URLParams.Add("name", "hello-world")
@@ -144,7 +173,7 @@ func TestHandler_Error(t *testing.T) {
 		context.WithValue(context.Background(), chi.RouteCtxKey, c),
 	)
 
-	Handler(repos, builds)(w, r)
+	Handler(repos, builds, stages)(w, r)
 	if got, want := w.Body.String(), string(badgeError); got != want {
 		t.Errorf("Want badge %q, got %q", got, want)
 	}
@@ -160,6 +189,8 @@ func TestHandler_Running(t *testing.T) {
 	builds := mock.NewMockBuildStore(controller)
 	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/master").Return(mockBuildRunning, nil)
 
+	stages := mock.NewMockStageStore(controller)
+
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
 	c.URLParams.Add("name", "hello-world")
@@ -170,7 +201,7 @@ func TestHandler_Running(t *testing.T) {
 		context.WithValue(context.Background(), chi.RouteCtxKey, c),
 	)
 
-	Handler(repos, builds)(w, r)
+	Handler(repos, builds, stages)(w, r)
 	if got, want := w.Body.String(), string(badgeStarted); got != want {
 		t.Errorf("Want badge %q, got %q", got, want)
 	}
@@ -183,6 +214,8 @@ func TestHandler_RepoNotFound(t *testing.T) {
 	repos := mock.NewMockRepositoryStore(controller)
 	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(nil, sql.ErrNoRows)
 
+	stages := mock.NewMockStageStore(controller)
+
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
 	c.URLParams.Add("name", "hello-world")
@@ -193,7 +226,7 @@ func TestHandler_RepoNotFound(t *testing.T) {
 		context.WithValue(context.Background(), chi.RouteCtxKey, c),
 	)
 
-	Handler(repos, nil)(w, r)
+	Handler(repos, nil, stages)(w, r)
 	if got, want := w.Code, 200; want != got {
 		t.Errorf("Want response code %d, got %d", want, got)
 	}
@@ -212,6 +245,8 @@ func TestHandler_BuildNotFound(t *testing.T) {
 	builds := mock.NewMockBuildStore(controller)
 	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/master").Return(nil, sql.ErrNoRows)
 
+	stages := mock.NewMockStageStore(controller)
+
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
 	c.URLParams.Add("name", "hello-world")
@@ -222,11 +257,101 @@ func TestHandler_BuildNotFound(t *testing.T) {
 		context.WithValue(context.Background(), chi.RouteCtxKey, c),
 	)
 
-	Handler(repos, builds)(w, r)
+	Handler(repos, builds, stages)(w, r)
 	if got, want := w.Code, 200; want != got {
 		t.Errorf("Want response code %d, got %d", want, got)
 	}
 	if got, want := w.Body.String(), string(badgeNone); got != want {
+		t.Errorf("Want badge %q, got %q", got, want)
+	}
+}
+
+func TestHandlerWithStage_Failing(t *testing.T) {
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+
+	repos := mock.NewMockRepositoryStore(controller)
+	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(mockRepo, nil)
+
+	builds := mock.NewMockBuildStore(controller)
+	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/develop").Return(mockBuild, nil)
+
+	stages := mock.NewMockStageStore(controller)
+	stages.EXPECT().ListSteps(gomock.Any(), mockRepo.ID).Return(mockSteps, nil)
+
+	c := new(chi.Context)
+	c.URLParams.Add("owner", "octocat")
+	c.URLParams.Add("name", "hello-world")
+	c.URLParams.Add("step", "failure-stage")
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/?ref=refs/heads/develop", nil)
+	r = r.WithContext(
+		context.WithValue(context.Background(), chi.RouteCtxKey, c),
+	)
+
+	Handler(repos, builds, stages)(w, r)
+	if got, want := w.Body.String(), string(badgeFailure); got != want {
+		t.Errorf("Want badge %q, got %q", got, want)
+	}
+}
+
+func TestHandlerWithStage_Running(t *testing.T) {
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+
+	repos := mock.NewMockRepositoryStore(controller)
+	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(mockRepo, nil)
+
+	builds := mock.NewMockBuildStore(controller)
+	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/develop").Return(mockBuild, nil)
+
+	stages := mock.NewMockStageStore(controller)
+	stages.EXPECT().ListSteps(gomock.Any(), mockRepo.ID).Return(mockSteps, nil)
+
+	c := new(chi.Context)
+	c.URLParams.Add("owner", "octocat")
+	c.URLParams.Add("name", "hello-world")
+	c.URLParams.Add("step", "running-stage")
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/?ref=refs/heads/develop", nil)
+	r = r.WithContext(
+		context.WithValue(context.Background(), chi.RouteCtxKey, c),
+	)
+
+	Handler(repos, builds, stages)(w, r)
+	if got, want := w.Body.String(), string(badgeStarted); got != want {
+		t.Errorf("Want badge %q, got %q", got, want)
+	}
+}
+
+func TestHandlerWithStage_Error(t *testing.T) {
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+
+	repos := mock.NewMockRepositoryStore(controller)
+	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(mockRepo, nil)
+
+	builds := mock.NewMockBuildStore(controller)
+	builds.EXPECT().FindRef(gomock.Any(), mockRepo.ID, "refs/heads/develop").Return(mockBuild, nil)
+
+	stages := mock.NewMockStageStore(controller)
+	stages.EXPECT().ListSteps(gomock.Any(), mockRepo.ID).Return(mockSteps, nil)
+
+	c := new(chi.Context)
+	c.URLParams.Add("owner", "octocat")
+	c.URLParams.Add("name", "hello-world")
+	c.URLParams.Add("step", "error-stage")
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/?ref=refs/heads/develop", nil)
+	r = r.WithContext(
+		context.WithValue(context.Background(), chi.RouteCtxKey, c),
+	)
+
+	Handler(repos, builds, stages)(w, r)
+	if got, want := w.Body.String(), string(badgeError); got != want {
 		t.Errorf("Want badge %q, got %q", got, want)
 	}
 }
