@@ -181,9 +181,21 @@ func (t *teardown) do(ctx context.Context, stage *core.Stage) error {
 		Repo:   repo,
 		Build:  build,
 	}
+
 	err = t.Webhook.Send(noContext, payload)
 	if err != nil {
-		logger.WithError(err).Warnln("manager: cannot send global webhook")
+		logger.WithError(err).Warnln("manager: cannot send global WebhookActionUpdated webhook")
+	}
+
+	payload = &core.WebhookData{
+		Event:  core.WebhookEventBuild,
+		Action: core.WebhookActionCompleted,
+		Repo:   repo,
+		Build:  build,
+	}
+	err = t.Webhook.Send(noContext, payload)
+	if err != nil {
+		logger.WithError(err).Warnln("manager: cannot send global WebhookActionCompleted webhook")
 	}
 
 	user, err := t.Users.Find(noContext, repo.UserID)

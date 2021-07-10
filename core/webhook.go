@@ -27,11 +27,12 @@ const (
 
 // Webhook action types.
 const (
-	WebhookActionCreated  = "created"
-	WebhookActionUpdated  = "updated"
-	WebhookActionDeleted  = "deleted"
-	WebhookActionEnabled  = "enabled"
-	WebhookActionDisabled = "disabled"
+	WebhookActionCreated   = "created"
+	WebhookActionUpdated   = "updated"
+	WebhookActionDeleted   = "deleted"
+	WebhookActionEnabled   = "enabled"
+	WebhookActionDisabled  = "disabled"
+	WebhookActionCompleted = "completed"
 )
 
 type (
