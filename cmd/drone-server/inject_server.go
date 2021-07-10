@@ -115,12 +115,16 @@ func provideRPC2(m manager.BuildManager, config config.Config) rpcHandlerV2 {
 // http server that is configured from the environment.
 func provideServer(handler *chi.Mux, config config.Config) *server.Server {
 	return &server.Server{
-		Acme:    config.Server.Acme,
-		Addr:    config.Server.Port,
-		Cert:    config.Server.Cert,
-		Key:     config.Server.Key,
-		Host:    config.Server.Host,
-		Handler: handler,
+		Acme:            config.Server.Acme,
+		Addr:            config.Server.Port,
+		Cert:            config.Server.Cert,
+		Key:             config.Server.Key,
+		Host:            config.Server.Host,
+		TLSMinVersion:   config.Server.TLSMinVersion,
+		TLSMaxVersion:   config.Server.TLSMaxVersion,
+		TLSCurves:       config.Server.TLSCurves,
+		TLSCipherSuites: config.Server.TLSCipherSuites,
+		Handler:         handler,
 	}
 }
 

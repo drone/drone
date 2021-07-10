@@ -234,15 +234,19 @@ type (
 
 	// Server provides the server configuration.
 	Server struct {
-		Addr  string `envconfig:"-"`
-		Host  string `envconfig:"DRONE_SERVER_HOST" default:"localhost:8080"`
-		Port  string `envconfig:"DRONE_SERVER_PORT" default:":8080"`
-		Proto string `envconfig:"DRONE_SERVER_PROTO" default:"http"`
-		Pprof bool   `envconfig:"DRONE_PPROF_ENABLED"`
-		Acme  bool   `envconfig:"DRONE_TLS_AUTOCERT"`
-		Email string `envconfig:"DRONE_TLS_EMAIL"`
-		Cert  string `envconfig:"DRONE_TLS_CERT"`
-		Key   string `envconfig:"DRONE_TLS_KEY"`
+		Addr            string   `envconfig:"-"`
+		Host            string   `envconfig:"DRONE_SERVER_HOST" default:"localhost:8080"`
+		Port            string   `envconfig:"DRONE_SERVER_PORT" default:":8080"`
+		Proto           string   `envconfig:"DRONE_SERVER_PROTO" default:"http"`
+		Pprof           bool     `envconfig:"DRONE_PPROF_ENABLED"`
+		Acme            bool     `envconfig:"DRONE_TLS_AUTOCERT"`
+		Email           string   `envconfig:"DRONE_TLS_EMAIL"`
+		Cert            string   `envconfig:"DRONE_TLS_CERT"`
+		Key             string   `envconfig:"DRONE_TLS_KEY"`
+		TLSMinVersion   string   `envconfig:"DRONE_TLS_MIN_VERSION"`
+		TLSMaxVersion   string   `envconfig:"DRONE_TLS_MAX_VERSION"`
+		TLSCurves       []string `envconfig:"DRONE_TLS_CURVES"`
+		TLSCipherSuites []string `envconfig:"DRONE_TLS_CIPHER_SUITES"`
 	}
 
 	// Proxy provides proxy server configuration.
