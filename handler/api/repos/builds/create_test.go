@@ -5,6 +5,7 @@
 package builds
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http/httptest"
@@ -156,6 +157,62 @@ func TestCreate_FromHead(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "/", nil)
+	r = r.WithContext(
+		context.WithValue(request.WithUser(r.Context(), mockUser), chi.RouteCtxKey, c),
+	)
+
+	HandleCreate(users, repos, commits, triggerer)(w, r)
+	if got, want := w.Code, 200; want != got {
+		t.Errorf("Want response code %d, got %d", want, got)
+	}
+
+	got, want := new(core.Build), mockBuild
+	json.NewDecoder(w.Body).Decode(got)
+	if diff := cmp.Diff(got, want); len(diff) != 0 {
+		t.Errorf(diff)
+	}
+}
+
+func TestCreate_FromHead_JSON_body(t *testing.T) {
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+
+	mockCommit := &core.Commit{
+		Sha:     "cce10d5c4760d1d6ede99db850ab7e77efe15579",
+		Ref:     "refs/heads/master",
+		Message: "updated README.md",
+		Link:    "https://github.com/octocatl/hello-world/commit/cce10d5c4760d1d6ede99db850ab7e77efe15579",
+		Author: &core.Committer{
+			Name:   "The Octocat",
+			Email:  "octocat@github.com",
+			Login:  "octocat",
+			Avatar: "https://github.com/octocat.png",
+		},
+	}
+
+	users := mock.NewMockUserStore(controller)
+	users.EXPECT().Find(gomock.Any(), mockRepo.UserID).Return(mockUser, nil)
+
+	repos := mock.NewMockRepositoryStore(controller)
+	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(mockRepo, nil)
+
+	commits := mock.NewMockCommitService(controller)
+	commits.EXPECT().FindRef(gomock.Any(), mockUser, mockRepo.Slug, mockCommit.Ref).Return(mockCommit, nil)
+
+	triggerer := mock.NewMockTriggerer(controller)
+	triggerer.EXPECT().Trigger(gomock.Any(), mockRepo, gomock.Any()).Return(mockBuild, nil)
+
+	c := new(chi.Context)
+	c.URLParams.Add("owner", "octocat")
+	c.URLParams.Add("name", "hello-world")
+
+	w := httptest.NewRecorder()
+	testPostBody := map[string]interface{}{
+		"test": "test",
+	}
+	body, _ := json.Marshal(testPostBody)
+	r := httptest.NewRequest("POST", "/", bytes.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
 	r = r.WithContext(
 		context.WithValue(request.WithUser(r.Context(), mockUser), chi.RouteCtxKey, c),
 	)

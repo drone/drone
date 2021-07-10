@@ -15,6 +15,9 @@
 package builds
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/drone/drone/core"
@@ -93,6 +96,7 @@ func HandleCreate(
 			Sender:       user.Login,
 			Params:       map[string]string{},
 		}
+		_params := make(map[string]string)
 
 		for key, value := range r.URL.Query() {
 			if key == "access_token" ||
@@ -105,6 +109,34 @@ func HandleCreate(
 			}
 			hook.Params[key] = value[0]
 		}
+
+		if r.Body == http.NoBody {
+			var contentType string
+			contentType = r.Header.Get("Content-Type")
+			if contentType == "application/json" {
+				b, err := ioutil.ReadAll(r.Body)
+				if err != nil {
+					render.InternalError(w, err)
+				}
+				var body map[string]interface{}
+
+				err = json.Unmarshal(b, &body)
+				if err != nil {
+					render.InternalError(w, err)
+				} else {
+					for key, value := range body {
+						_params[key] = fmt.Sprintf("%v", value)
+					}
+				}
+			} else {
+				r.ParseForm()
+				for key, value := range r.Form{
+					_params[key] = value[0]
+				}
+			}
+		}
+		hook.Params = _params
+
 
 		result, err := triggerer.Trigger(r.Context(), repo, hook)
 		if err != nil {
