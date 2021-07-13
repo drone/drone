@@ -63,8 +63,10 @@ func testBuildCreate(store *buildStore) func(t *testing.T) {
 		t.Run("Find", testBuildFind(store, build))
 		t.Run("FindNumber", testBuildFindNumber(store, build))
 		t.Run("FindRef", testBuildFindRef(store, build))
-		t.Run("List", testBuildList(store, build))
-		t.Run("ListRef", testBuildListRef(store, build))
+		t.Run("List", testBuildList(store, "", "", build, 1))
+		t.Run("ListRefWithoutEvent", testBuildList(store, build.Ref, "", build, 1))
+		t.Run("ListRefWithEvent", testBuildList(store, build.Ref, build.Event, build, 1))
+		t.Run("ListRefWithWrongEvent", testBuildList(store, build.Ref, core.EventCron, build, 0))
 		t.Run("Update", testBuildUpdate(store, build))
 		t.Run("Locking", testBuildLocking(store, build))
 		t.Run("Delete", testBuildDelete(store, build))
@@ -104,31 +106,16 @@ func testBuildFindRef(store *buildStore, build *core.Build) func(t *testing.T) {
 	}
 }
 
-func testBuildList(store *buildStore, build *core.Build) func(t *testing.T) {
+func testBuildList(store *buildStore, ref, event string, build *core.Build, expected int) func(t *testing.T) {
 	return func(t *testing.T) {
-		list, err := store.List(noContext, build.RepoID, 10, 0)
+		list, err := store.List(noContext, build.RepoID, ref, event, 10, 0)
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		if got, want := len(list), 1; got != want {
+		if got, want := len(list), expected; got != want {
 			t.Errorf("Want list count %d, got %d", want, got)
-		} else {
-			t.Run("Fields", testBuild(list[0]))
-		}
-	}
-}
-
-func testBuildListRef(store *buildStore, build *core.Build) func(t *testing.T) {
-	return func(t *testing.T) {
-		list, err := store.ListRef(noContext, build.RepoID, build.Ref, 10, 0)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		if got, want := len(list), 1; got != want {
-			t.Errorf("Want list count %d, got %d", want, got)
-		} else {
+		} else if expected > 0 {
 			t.Run("Fields", testBuild(list[0]))
 		}
 	}
@@ -210,7 +197,7 @@ func testBuildPurge(store *buildStore) func(t *testing.T) {
 		store.Create(noContext, &core.Build{RepoID: 1, Number: 100}, nil)
 		store.Create(noContext, &core.Build{RepoID: 1, Number: 101}, nil)
 
-		before, err := store.List(noContext, 1, 100, 0)
+		before, err := store.List(noContext, 1, "", "", 100, 0)
 		if err != nil {
 			t.Error(err)
 		}
@@ -221,7 +208,7 @@ func testBuildPurge(store *buildStore) func(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		after, err := store.List(noContext, 1, 100, 0)
+		after, err := store.List(noContext, 1, "", "", 100, 0)
 		if err != nil {
 			t.Error(err)
 		}

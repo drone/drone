@@ -83,7 +83,7 @@ func TestList(t *testing.T) {
 	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(mockRepo, nil)
 
 	builds := mock.NewMockBuildStore(controller)
-	builds.EXPECT().List(gomock.Any(), mockRepo.ID, 25, 0).Return(mockBuilds, nil)
+	builds.EXPECT().List(gomock.Any(), mockRepo.ID, "", "", 25, 0).Return(mockBuilds, nil)
 
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
@@ -115,14 +115,14 @@ func TestListBranch(t *testing.T) {
 	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(mockRepo, nil)
 
 	builds := mock.NewMockBuildStore(controller)
-	builds.EXPECT().ListRef(gomock.Any(), mockRepo.ID, "refs/heads/develop", 25, 0).Return(mockBuilds, nil)
+	builds.EXPECT().List(gomock.Any(), mockRepo.ID, "refs/heads/develop", "cron", 25, 0).Return(mockBuilds, nil)
 
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")
 	c.URLParams.Add("name", "hello-world")
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/?branch=develop", nil)
+	r := httptest.NewRequest("GET", "/?branch=develop&event=cron", nil)
 	r = r.WithContext(
 		context.WithValue(context.Background(), chi.RouteCtxKey, c),
 	)
@@ -177,7 +177,7 @@ func TestList_InternalError(t *testing.T) {
 	repos := mock.NewMockRepositoryStore(controller)
 	builds := mock.NewMockBuildStore(controller)
 	repos.EXPECT().FindName(gomock.Any(), gomock.Any(), mockRepo.Name).Return(mockRepo, nil)
-	builds.EXPECT().List(gomock.Any(), mockRepo.ID, 25, 0).Return(nil, errors.ErrNotFound)
+	builds.EXPECT().List(gomock.Any(), mockRepo.ID, "", "", 25, 0).Return(nil, errors.ErrNotFound)
 
 	c := new(chi.Context)
 	c.URLParams.Add("owner", "octocat")

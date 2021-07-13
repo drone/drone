@@ -83,39 +83,17 @@ func (s *buildStore) FindRef(ctx context.Context, repo int64, ref string) (*core
 }
 
 // List returns a list of builds from the datastore by repository id.
-func (s *buildStore) List(ctx context.Context, repo int64, limit, offset int) ([]*core.Build, error) {
-	var out []*core.Build
-	err := s.db.View(func(queryer db.Queryer, binder db.Binder) error {
-		params := map[string]interface{}{
-			"build_repo_id": repo,
-			"limit":         limit,
-			"offset":        offset,
-		}
-		stmt, args, err := binder.BindNamed(queryRepo, params)
-		if err != nil {
-			return err
-		}
-		rows, err := queryer.Query(stmt, args...)
-		if err != nil {
-			return err
-		}
-		out, err = scanRows(rows)
-		return err
-	})
-	return out, err
-}
-
-// ListRef returns a list of builds from the datastore by ref.
-func (s *buildStore) ListRef(ctx context.Context, repo int64, ref string, limit, offset int) ([]*core.Build, error) {
+func (s *buildStore) List(ctx context.Context, repo int64, ref, event string, limit, offset int) ([]*core.Build, error) {
 	var out []*core.Build
 	err := s.db.View(func(queryer db.Queryer, binder db.Binder) error {
 		params := map[string]interface{}{
 			"build_repo_id": repo,
 			"build_ref":     ref,
+			"build_event":   event,
 			"limit":         limit,
 			"offset":        offset,
 		}
-		stmt, args, err := binder.BindNamed(queryRef, params)
+		stmt, args, err := binder.BindNamed(queryRepo, params)
 		if err != nil {
 			return err
 		}
@@ -489,14 +467,6 @@ WHERE build_repo_id = :build_repo_id
   AND build_number = :build_number
 `
 
-const queryRef = queryBase + `
-FROM builds
-WHERE build_repo_id = :build_repo_id
-  AND build_ref = :build_ref
-ORDER BY build_id DESC
-LIMIT :limit OFFSET :offset
-`
-
 const queryRowRef = queryBase + `
 FROM builds
 WHERE build_repo_id = :build_repo_id
@@ -508,6 +478,8 @@ LIMIT 1
 const queryRepo = queryBase + `
 FROM builds
 WHERE build_repo_id = :build_repo_id
+	AND ('' = :build_ref   OR build_ref = :build_ref)
+	AND ('' = :build_event OR build_event = :build_event)
 ORDER BY build_id DESC
 LIMIT :limit OFFSET :offset
 `

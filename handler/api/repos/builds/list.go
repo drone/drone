@@ -37,6 +37,7 @@ func HandleList(
 			namespace = chi.URLParam(r, "owner")
 			name      = chi.URLParam(r, "name")
 			branch    = r.FormValue("branch")
+			event     = r.FormValue("event")
 			page      = r.FormValue("page")
 			perPage   = r.FormValue("per_page")
 		)
@@ -63,12 +64,11 @@ func HandleList(
 		}
 
 		var results []*core.Build
+		ref := ""
 		if branch != "" {
-			ref := fmt.Sprintf("refs/heads/%s", branch)
-			results, err = builds.ListRef(r.Context(), repo.ID, ref, limit, offset)
-		} else {
-			results, err = builds.List(r.Context(), repo.ID, limit, offset)
+			ref = fmt.Sprintf("refs/heads/%s", branch)
 		}
+		results, err = builds.List(r.Context(), repo.ID, ref, event, limit, offset)
 
 		if err != nil {
 			render.InternalError(w, err)

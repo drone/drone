@@ -67,10 +67,7 @@ type BuildStore interface {
 	FindRef(context.Context, int64, string) (*Build, error)
 
 	// List returns a list of builds from the datastore by repository id.
-	List(context.Context, int64, int, int) ([]*Build, error)
-
-	// ListRef returns a list of builds from the datastore by ref.
-	ListRef(context.Context, int64, string, int, int) ([]*Build, error)
+	List(context.Context, int64, string, string, int, int) ([]*Build, error)
 
 	// LatestBranches returns the latest builds from the
 	// datastore by branch.
