@@ -84,6 +84,7 @@ func provideConvertPlugin(client *scm.Client, conf spec.Config, templateStore co
 		),
 		converter.Jsonnet(
 			conf.Jsonnet.Enabled,
+			client,
 		),
 		converter.Template(
 			templateStore,

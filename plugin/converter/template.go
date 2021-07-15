@@ -85,7 +85,7 @@ func (p *templatePlugin) Convert(ctx context.Context, req *core.ConvertArgs) (*c
 	}
 	// Check if the file is of type Jsonnet
 	if strings.HasSuffix(templateArgs.Load, ".jsonnet") {
-		file, err := jsonnet.Parse(req, template, templateArgs.Data)
+		file, err := jsonnet.Parse(req, nil, template, templateArgs.Data)
 		if err != nil {
 			return nil, err
 		}

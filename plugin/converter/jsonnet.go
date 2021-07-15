@@ -8,6 +8,7 @@ package converter
 
 import (
 	"context"
+	"github.com/drone/go-scm/scm"
 	"strings"
 
 	"github.com/drone/drone/core"
@@ -19,14 +20,16 @@ import (
 
 // Jsonnet returns a conversion service that converts the
 // jsonnet file to a yaml file.
-func Jsonnet(enabled bool) core.ConvertService {
+func Jsonnet(enabled bool, client *scm.Client) core.ConvertService {
 	return &jsonnetPlugin{
 		enabled: enabled,
+		client:  client,
 	}
 }
 
 type jsonnetPlugin struct {
 	enabled bool
+	client  *scm.Client
 }
 
 func (p *jsonnetPlugin) Convert(ctx context.Context, req *core.ConvertArgs) (*core.Config, error) {
@@ -40,7 +43,7 @@ func (p *jsonnetPlugin) Convert(ctx context.Context, req *core.ConvertArgs) (*co
 		return nil, nil
 	}
 
-	file, err := jsonnet.Parse(req, nil, nil)
+	file, err := jsonnet.Parse(req, p.client, nil, nil)
 
 	if err != nil {
 		return nil, err
