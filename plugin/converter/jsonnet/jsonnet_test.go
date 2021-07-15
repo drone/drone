@@ -44,7 +44,7 @@ func TestParse(t *testing.T) {
 
 	req.Config.Data = string(before)
 
-	parsedFile, err := Parse(req, template, templateData)
+	parsedFile, err := Parse(req, nil, template, templateData)
 	if err != nil {
 		t.Error(err)
 		return
@@ -82,7 +82,7 @@ func TestParseJsonnetNotTemplateFile(t *testing.T) {
 	req.Repo.Config = "plugin.jsonnet"
 	req.Config.Data = string(before)
 
-	parsedFile, err := Parse(req, nil, nil)
+	parsedFile, err := Parse(req, nil, nil, nil)
 	if err != nil {
 		t.Error(err)
 		return

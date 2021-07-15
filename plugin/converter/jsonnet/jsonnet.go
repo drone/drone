@@ -2,8 +2,14 @@ package jsonnet
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"github.com/drone/drone/handler/api/errors"
+	"github.com/drone/go-scm/scm"
+	"path"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/drone/drone/core"
 
@@ -14,11 +20,93 @@ const repo = "repo."
 const build = "build."
 const param = "param."
 
-func Parse(req *core.ConvertArgs, template *core.Template, templateData map[string]interface{}) (string, error) {
+type importer struct {
+	repo  *core.Repository
+	build *core.Build
+
+	// jsonnet does not cache file imports and may request
+	// the same file multiple times. We cache the files to
+	// duplicate API calls.
+	cache map[string]jsonnet.Contents
+
+	// limit the number of outbound requests. github limits
+	// the number of api requests per hour, so we should
+	// make sure that a single build does not abuse the api
+	// by imporing dozens of files.
+	limit int
+
+	// counts the number of outbound requests. if the count
+	// exceeds the limit, the importer will return errors.
+	count int
+
+	client *scm.Client
+	user   *core.User
+}
+
+func (i *importer) Import(importedFrom, importedPath string) (contents jsonnet.Contents, foundAt string, err error) {
+	if i.cache == nil {
+		i.cache = map[string]jsonnet.Contents{}
+	}
+
+	// the import is relative to the imported from path. the
+	// imported path must resolve to a filepath relative to
+	// the root of the repository.
+	importedPath = path.Join(
+		path.Dir(importedFrom),
+		importedPath,
+	)
+
+	if strings.HasPrefix(importedFrom, "../") {
+		err = fmt.Errorf("jsonnet: cannot resolve import: %s", importedPath)
+		return contents, foundAt, err
+	}
+
+	// if the contents exist in the cache, return the
+	// cached item.
+	if contents, ok := i.cache[importedPath]; ok {
+		return contents, importedPath, nil
+	}
+
+	defer func() {
+		i.count++
+	}()
+
+	// if the import limit is exceeded log an error message.
+	if i.limit > 0 && i.count > i.limit {
+		return contents, foundAt, errors.New("jsonnet: import limit exceeded")
+	}
+
+	ctx := context.WithValue(context.TODO(), scm.TokenKey{}, &scm.Token{
+		Token:   i.user.Token,
+		Refresh: i.user.Token,
+		Expires: time.Time{},
+	})
+
+	find, _, err := i.client.Contents.Find(ctx, i.repo.Namespace+"/"+i.repo.Name, importedPath, i.build.Ref)
+
+	if err != nil {
+		return contents, foundAt, err
+	}
+
+	i.cache[importedPath] = jsonnet.MakeContents(string(find.Data))
+
+	return i.cache[importedPath], importedPath, err
+}
+
+func Parse(req *core.ConvertArgs, client *scm.Client, template *core.Template, templateData map[string]interface{}) (string, error) {
 	vm := jsonnet.MakeVM()
 	vm.MaxStack = 500
 	vm.StringOutput = false
 	vm.ErrorFormatter.SetMaxStackTraceSize(20)
+	vm.Importer(
+		&importer{
+			repo:   req.Repo,
+			build:  req.Build,
+			limit:  10,
+			user:   req.User,
+			client: client,
+		},
+	)
 
 	//map build/repo parameters
 	if req.Build != nil {
@@ -48,9 +136,9 @@ func Parse(req *core.ConvertArgs, template *core.Template, templateData map[stri
 
 	// convert the jsonnet file to yaml
 	buf := new(bytes.Buffer)
-	docs, err := vm.EvaluateSnippetStream(jsonnetFileName, jsonnetFile)
+	docs, err := vm.EvaluateAnonymousSnippetStream(jsonnetFileName, jsonnetFile)
 	if err != nil {
-		doc, err2 := vm.EvaluateSnippet(jsonnetFileName, jsonnetFile)
+		doc, err2 := vm.EvaluateAnonymousSnippet(jsonnetFileName, jsonnetFile)
 		if err2 != nil {
 			return "", err
 		}
